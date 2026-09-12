@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AcademiaPrime Balance Dashboard</title>
+    <title>JungleBot Balance Dashboard</title>
     <!-- Chart.js for the Tier Histogram -->
     <script src="https://jsdelivr.net"></script>
     <script src="https://jsdelivr.net"></script>
@@ -222,7 +222,7 @@
 
     // --- FETCH DATA FROM YOUR N8N WORKFLOW NODE ---
     // Replace URL string with your actual production Webhook URL from your n8n instance
-    const N8N_WEBHOOK_URL = `https://your-n8n-instance.com{initData.id}`;
+    const N8N_WEBHOOK_URL = `https://JungleBotz-JungleBotz-n8n-automation.hf.space/webhook/user-balance`;
 
     fetch(N8N_WEBHOOK_URL)
         .then(res => res.json())
