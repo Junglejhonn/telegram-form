@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AcademiaPrime Balance Dashboard</title>
+    <!-- Chart.js for the Tier Histogram -->
+    <script src="https://jsdelivr.net"></script>
+    <script src="https://jsdelivr.net"></script>
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org"></script>
+    <style>
+        :root {
+            --bg-color: #4A4D4F; /* Ash gray from screenshot 1 */
+            --accent-cyan: #7FD2F8; /* Cyan from screenshot 2 */
+            --accent-yellow: #FFEB3B;
+            --white: #FFFFFF;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--white);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #dashboard-container {
+            width: 100%;
+            max-width: 450px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* Header Style */
+        .header {
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 15px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            color: var(--white);
+        }
+        .chat-id {
+            font-size: 12px;
+            opacity: 0.6;
+            margin-top: 5px;
+        }
+
+        /* Status & Cards */
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .status-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .status-dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .status-active { background-color: #4CAF50; box-shadow: 0 0 10px #4CAF50; }
+        .status-inactive { background-color: #F44336; box-shadow: 0 0 10px #F44336; }
+
+        /* Duration Circular Progress */
+        .duration-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+        .progress-ring {
+            position: relative;
+            width: 120px;
+            height: 120px;
+        }
+        .progress-ring circle {
+            fill: none;
+            stroke-width: 8;
+        }
+        .progress-ring .track {
+            stroke: var(--white);
+        }
+        .progress-ring .fill {
+            stroke: var(--accent-yellow);
+            stroke-dasharray: 301.6;
+            stroke-dashoffset: 301.6;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+            transition: stroke-dashoffset 0.5s ease;
+        }
+        .duration-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        /* Test Tube Request Counter */
+        .tube-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        .test-tube-wrapper {
+            position: relative;
+            width: 60px;
+            height: 180px;
+            border: 4px solid var(--white);
+            border-bottom-left-radius: 30px;
+            border-bottom-right-radius: 30px;
+            border-top: none;
+            background: rgba(255,255,255,0.1);
+            overflow: hidden;
+        }
+        .test-tube-lip {
+            width: 76px;
+            height: 8px;
+            background: var(--white);
+            border-radius: 4px;
+            margin-bottom: -4px;
+            z-index: 2;
+        }
+        .fluid {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            background: linear-gradient(to top, #512DA8, var(--accent-cyan)); /* Violet to Cyan fluid blend */
+            height: 100%; /* Dynamically changed by JS */
+            transition: height 1s ease-in-out;
+        }
+        .tube-label {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        /* Histogram Canvas */
+        .chart-container {
+            width: 100%;
+            height: 200px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="dashboard-container">
+    <!-- Username Header -->
+    <div class="header">
+        <h1 id="username">@Loading...</h1>
+        <div class="chat-id">Chat ID: <span id="chatId">--------</span></div>
+    </div>
+
+    <!-- Active Indicator Row -->
+    <div class="card status-container">
+        <span>Account Status:</span>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <span id="statusText">Verifying</span>
+            <span id="statusDot" class="status-dot" style="background-color: #ccc;"></span>
+        </div>
+    </div>
+
+    <!-- Duration Circle Info -->
+    <div class="card duration-box">
+        <h3>Subscription Duration</h3>
+        <div class="progress-ring">
+            <svg width="120" height="120">
+                <circle class="track" cx="60" cy="60" r="48"></circle>
+                <circle class="fill" id="durationFill" cx="60" cy="60" r="48"></circle>
+            </svg>
+            <div class="duration-text" id="daysLeft">0 Days</div>
+        </div>
+        <p id="dateRange" style="font-size: 12px; opacity: 0.7; margin-top: 10px;"></p>
+    </div>
+
+    <!-- Request Draining Test Tube -->
+    <div class="card tube-section">
+        <h3>AI Agent Requests Remaining</h3>
+        <div class="test-tube-lip"></div>
+        <div class="test-tube-wrapper">
+            <div class="fluid" id="fluidLevel"></div>
+        </div>
+        <div class="tube-label"><span id="requestsUsed">0</span> / <span id="totalRequests">50</span></div>
+    </div>
+
+    <!-- Tier Histogram -->
+    <div class="card">
+        <h3>Subscription Tier Limit</h3>
+        <div class="chart-container">
+            <canvas id="tierChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Initialize Telegram WebApp
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
+
+    // Fallback Mock data for browser testing if opened outside Telegram
+    const initData = tg.initDataUnsafe?.user || { id: "123456789", username: "SampleUser" };
+    
+    document.getElementById('chatId').innerText = initData.id;
+    document.getElementById('username').innerText = initData.username ? `@${initData.username}` : "User Profile";
+
+    // --- FETCH DATA FROM YOUR N8N WORKFLOW NODE ---
+    // Replace URL string with your actual production Webhook URL from your n8n instance
+    const N8N_WEBHOOK_URL = `https://your-n8n-instance.com{initData.id}`;
+
+    fetch(N8N_WEBHOOK_URL)
+        .then(res => res.json())
+        .then(data => {
+            renderDashboard(data);
+        })
+        .catch(err => {
+            console.error("Sheet Sync Failed, showing mock layout data for validation.", err);
+            // Demonstration fallback data mirroring your Google Sheet specifications
+            renderDashboard({
+                active: "YES", 
+                tier: "1month", // Options: "1month" or "1year"
+                daysRemaining: 18,
+                totalDays: 31,
+                requestsMade: 12,
+                maxRequests: 50 // 5 for unpaid, 50 for paid
+            });
+        });
+
+    function renderDashboard(data) {
+        // 1. Status Rule
+        const isTrueActive = data.active.toUpperCase() === 'YES';
+        document.getElementById('statusText').innerText = isTrueActive ? 'Active Tier' : 'Inactive';
+        document.getElementById('statusDot').className = `status-dot ${isTrueActive ? 'status-active' : 'status-inactive'}`;
+
+        // 2. Duration Circle Calculation (Yellow Fill, White Frame)
+        const daysRemaining = Math.max(0, parseInt(data.daysRemaining));
+        const totalDays = parseInt(data.totalDays) || 31;
+        document.getElementById('daysLeft').innerText = `${daysRemaining} Days`;
+        document.getElementById('dateRange').innerText = `Active for ${totalDays} Days Total`;
+        
+        const circleRadius = 48;
+        const circumference = 2 * Math.PI * circleRadius;
+        const percentageLeft = daysRemaining / totalDays;
+        const offset = circumference - (percentageLeft * circumference);
+        document.getElementById('durationFill').style.strokeDashoffset = offset;
+
+        // 3. Request Test Tube Execution
+        const currentReq = parseInt(data.requestsMade);
+        const limitReq = parseInt(data.maxRequests);
+        document.getElementById('requestsUsed').innerText = currentReq;
+        document.getElementById('totalRequests').innerText = limitReq;
+        
+        // Calculate remaining volume level inside the tube
+        const remainingPercentage = Math.max(0, Math.min(100, ((limitReq - currentReq) / limitReq) * 100));
+        document.getElementById('fluidLevel').style.height = `${remainingPercentage}%`;
+
+        // 4. Histogram Generation for Tier
+        const ctx = document.getElementById('tierChart').getContext('2d');
+        
+        // Determine values matching current user profile configuration
+        const isOneYear = data.tier.toLowerCase() === '1year';
+        new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: ['1 Month Tier', '1 Year Tier'],
+        datasets: [{
+            label: 'Tier Max Cap (Days)',
+            data:,
+            backgroundColor: [
+                !isOneYear ? 'rgba(255, 235, 59, 0.8)' : 'rgba(255, 255, 255, 0.2)',
+                isOneYear ? 'rgba(255, 235, 59, 0.8)' : 'rgba(255, 255, 255, 0.2)'
+            ],
+            borderColor: ['#FFFFFF', '#FFFFFF'],
+            borderWidth: 1.5,
+            barThickness: 40
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { 
+            legend: { display: false } 
+        },
+        scales: {
+            x: { 
+                ticks: { color: '#FFFFFF' }, 
+                grid: { display: false } 
+            },
+            y: {
+                ticks: { color: '#FFFFFF' },
+                grid: { color: 'rgba(255,255,255,0.1)' },
+                title: { display: true, text: 'Days', color: '#FFF' },
+                suggestedMax: 400
+            }
+        }
+    }
+});
+
+        
